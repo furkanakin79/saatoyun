@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kapsamlı Saat Öğrenme Kiti</title>
+    <style>
+        body { font-family: 'Comic Sans MS', cursive, sans-serif; text-align: center; background-color: #f4f4f9; color: #333; margin: 0; padding: 10px; box-sizing: border-box; }
+        
+        h1 { margin: 5px 0 20px 0; font-size: 1.8em; color: #2c3e50; }
+        
+        /* --- YENİ TEK PARÇA GRİD (IZGARA) YAPISI --- */
+        /* Ekrandaki her şey bu 4 sütunlu düzene milimetrik olarak uyar */
+        .main-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); /* 4 eşit sütun */
+            gap: 15px; /* Aralarındaki boşluk */
+            max-width: 1200px; 
+            margin: 0 auto; 
+            align-items: stretch; 
+        }
+        
+		/* --- ÜST BÖLÜM: Saat (3 sütun) ve Test Paneli (1 sütun) --- */																	 
+        .clock-area {
+            grid-column: 1 / 4; /* 1., 2. ve 3. sütunları tamamen kaplar */
+            display: flex;
+            justify-content: center; /* Saati bu 3 sütunluk geniş alanın tam ortasına alır */
+            align-items: center;
+            padding-bottom: 10px;
+        }
+
+        #clockCanvas { 
+            background-color: #ffffff; 
+            border-radius: 50%; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
+            width: 350px; 
+            height: 350px; 
+            margin: 0; 
+        }
+        
+        .quiz-area {
+            grid-column: 4 / 5; /* Sadece 4. sütunu kaplar (Altındaki 4. panelle milimetrik aynı hizada olur) */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* --- STANDART KUTU (PANEL) TASARIMI --- */
+        .panel { 
+            background: #fff; 
+            padding: 15px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            text-align: left; 
+            font-size: 14px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start; 
+        }
+        .panel h3 { margin: 0 0 15px 0; font-size: 1em; border-bottom: 2px solid #eee; padding-bottom: 8px; text-align: center; color: #444; }
+        
+		/* Buton Stilleri */					
+        button { color: white; border: none; padding: 6px 10px; font-size: 13px; border-radius: 6px; cursor: pointer; margin: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: 0.2s; font-weight: bold; width: 30%; }
+        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        button:active { transform: translateY(0); }
+        
+        .btn-forward { background-color: #ff7f50; }
+        .btn-backward { background-color: #6a5acd; }
+        .btn-full { width: 100%; margin: 8px 0; padding: 10px; font-size: 14px; }
+
+
+
+        
+        input[type="time"] { font-size: 1.8em; font-weight: bold; color: #4682b4; background: white; padding: 5px; border-radius: 8px; border: 2px solid #4682b4; cursor: pointer; width: 100%; box-sizing: border-box; text-align: center; margin-bottom: 8px;}
+        
+        .checkbox-label { display: block; margin: 8px 0; font-size: 14px; cursor: pointer; background: #f9f9f9; padding: 8px; border-radius: 6px; border: 1px solid #ddd; }
+        .checkbox-label input { transform: scale(1.2); margin-right: 8px; }
+        
+        .display-box { min-height: 50px; display: flex; align-items: center; justify-content: center; margin-top: auto; }
+        
+        #digitalDisplay { font-size: 2.2em; font-weight: bold; color: #ff1493; visibility: hidden; } 
+        #spelledTimeDisplay { font-size: 1.2em; font-weight: bold; color: #800080; text-align: center; visibility: hidden; } 
+        
+    </style>
+</head>
+<body>
+    <h1>Zamanı Keşfedelim! ⏰</h1>
+    
+    <div class="main-grid">
+        
+        <div class="clock-area">
+            <canvas id="clockCanvas" width="400" height="400"></canvas>
+        </div>
+        
+        <div class="panel quiz-area">
+            <h3 style="color: #ff8c00;">❓ Kendini Test Et</h3>
+            <button class="btn-full" style="background-color: #ff8c00; font-size: 15px; margin-top: 0;" onclick="generateQuiz()">🎲 Soru Sor</button>
+            
+            <div style="background: #e6f2ff; border: 2px dashed #1e90ff; border-radius: 8px; margin: 10px 0; padding: 10px 0; display: flex; justify-content: center; align-items: center; flex-grow: 1;">
+                <div id="quizDisplay" style="font-size: 2.4em; font-weight: bold; color: #1e90ff; margin: 0;">--:--</div>
+            </div>
+            
+            <button class="btn-full" style="background-color: #3cb371; font-size: 15px;" onclick="checkQuiz()">✅ Kontrol Et</button>
+            
+            <div id="quizFeedback" style="font-size: 0.95em; font-weight: bold; margin-top: 10px; min-height: 40px; color: #666; display: flex; align-items: center; justify-content: center; text-align: center;">
+                Soru Sor butonuna basarak başla!
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>👁️ 1. Görünüm Ayarları</h3>
+            <label class="checkbox-label">
+                <input type="checkbox" id="chkAllHours" onchange="drawClock()"> 
+                Tüm Saatleri Göster (1, 2, 4...)
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="chkMinutes" onchange="drawClock()"> 
+                Dakikaları Göster (5, 10...)
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="chk24Hours" onchange="drawClock()"> 
+                24'lük Saati Göster (13, 14...)
+            </label>
+			<button class="btn-full" style="background-color: #dc143c; font-size: 15px; margin-top: auto;" onclick="resetToZero()">🔄 Sıfırla</button>																																			  
+        </div>
+
+        <div class="panel">
+            <h3>🎮 2. Analog Saati Değiştir</h3>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <button class="btn-backward" onclick="addHours(-1)">-1 Saat</button>
+                <button class="btn-backward" onclick="addMinutes(-5)">-5 Dk</button>
+                <button class="btn-backward" onclick="addMinutes(-1)">-1 Dk</button>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <button class="btn-forward" onclick="addMinutes(1)">+1 Dk</button>
+                <button class="btn-forward" onclick="addMinutes(5)">+5 Dk</button>
+                <button class="btn-forward" onclick="addHours(1)">+1 Saat</button>
+            </div>
+            
+            <button class="btn-full" id="btnToggleDigital" style="background-color: #3cb371;" onclick="toggleDigital()">Dijital Saati Göster</button>
+            
+            <div class="display-box">
+                <div id="digitalDisplay">00:00</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>🎯 3. Hedef Saati Gir</h3>
+            <input type="time" id="questionInput" value="00:00">
+            <button class="btn-full" style="background-color: #1e90ff;" onclick="applyQuestionTime()">Analog Saatte Göster</button>
+        </div>
+
+        <div class="panel">
+            <h3>📖 4. Saatin Okunuşu</h3>
+            <label class="checkbox-label" style="background: #e6e6fa; border-color: #d8bfd8;">
+                <input type="checkbox" id="chkPM" onchange="updateSpelledTimeIfVisible()"> 
+                Öğleden Sonra Olarak Oku (13, 14...)
+            </label>
+            <button class="btn-full" id="btnToggleSpelled" style="background-color: #3cb371;" onclick="toggleSpelledTime()">Okunuşu Göster</button>
+            
+            <div class="display-box" style="background: #fdf5e6; border: 2px dashed #800080; border-radius: 8px;">
+                <div id="spelledTimeDisplay"></div>
+            </div>
+        </div>
+
+    </div>
+
+
+
+
+
+    <script>
+		// --- SAAT ÇİZİMİ VE TEMEL MANTIK ---										  
+        const canvas = document.getElementById("clockCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        ctx.translate(200, 200); 
+        const radius = 135; 
+        
+        let currentTime = new Date();
+        currentTime.setHours(0, 0, 0); 
+        
+		// Test Modu Değişkeni						
+        let targetQuizTime = null;
+
+        function drawClock() {
+            ctx.clearRect(-200, -200, 400, 400); 
+            
+            drawFace(ctx, radius);
+            drawNumbers(ctx, radius);
+            drawTime(ctx, radius);
+            
+            updateDigitalText();
+            updateSpelledTimeIfVisible(); 
+        }
+
+        function drawFace(ctx, radius) {
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 5;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 0.07, 0, 2 * Math.PI);
+            ctx.fillStyle = '#000000';
+            ctx.fill();
+        }
+
+        function drawNumbers(ctx, radius) {
+            const chkAllHours = document.getElementById("chkAllHours").checked;
+            const chkMinutes = document.getElementById("chkMinutes").checked;
+            const chk24Hours = document.getElementById("chk24Hours").checked;
+
+            let ang;
+            
+            ctx.font = "bold " + radius * 0.20 + "px 'Comic Sans MS'";
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            ctx.fillStyle = '#ff0000';
+            
+            for(let num = 1; num <= 12; num++){
+                if (!chkAllHours && num % 3 !== 0) continue; 
+                
+                ang = num * Math.PI / 6;
+                ctx.rotate(ang);
+                ctx.translate(0, -radius * 0.72);
+                ctx.rotate(-ang);
+                ctx.fillText(num.toString(), 0, 0);
+                ctx.rotate(ang);
+                ctx.translate(0, radius * 0.72);
+                ctx.rotate(-ang);
+            }
+
+            if (chkMinutes) {
+                ctx.font = "bold " + radius * 0.12 + "px Arial";
+                ctx.fillStyle = '#0000ff';
+                for(let num = 1; num <= 60; num++){
+                    if(num % 5 !== 0) continue; 
+                    ang = num * Math.PI / 30;
+                    ctx.rotate(ang);
+                    ctx.translate(0, -radius * 0.90);
+                    ctx.rotate(-ang);
+                    ctx.fillText(num.toString(), 0, 0);
+                    ctx.rotate(ang);
+                    ctx.translate(0, radius * 0.90);
+                    ctx.rotate(-ang);
+                }
+            }
+
+            if (chk24Hours) {
+                ctx.font = "bold " + radius * 0.14 + "px 'Comic Sans MS'";
+                ctx.fillStyle = '#333333';
+                for(let num = 13; num <= 24; num++){
+                    let displayNum = num === 24 ? "00" : num.toString();
+                    ang = num * Math.PI / 6;
+                    ctx.rotate(ang);
+                    ctx.translate(0, -radius * 1.20);
+                    ctx.rotate(-ang);
+                    ctx.fillText(displayNum, 0, 0);
+                    ctx.rotate(ang);
+                    ctx.translate(0, radius * 1.20);
+                    ctx.rotate(-ang);
+                }
+            }
+        }
+
+        function drawTime(ctx, radius){
+            let hour = currentTime.getHours();
+            let minute = currentTime.getMinutes();
+            
+            let hourPos = (hour % 12 * Math.PI / 6) + (minute * Math.PI / (6 * 60));
+            drawHand(ctx, hourPos, radius * 0.55, 7, '#ff0000'); 
+            
+            let minutePos = (minute * Math.PI / 30);
+            drawHand(ctx, minutePos, radius * 0.85, 4, '#0000ff');
+        }
+
+        function drawHand(ctx, pos, length, width, color) {
+            ctx.beginPath();
+            ctx.lineWidth = width;
+            ctx.lineCap = "round";
+            ctx.strokeStyle = color;
+            ctx.moveTo(0,0);
+            ctx.rotate(pos);
+            ctx.lineTo(0, -length);
+            ctx.stroke();
+            ctx.rotate(-pos);
+        }
+
+        function addMinutes(mins) {
+            currentTime.setMinutes(currentTime.getMinutes() + mins);
+            drawClock();
+            updateQuestionInput(); 
+        }
+
+        function addHours(hrs) {
+            currentTime.setHours(currentTime.getHours() + hrs);
+            drawClock();
+            updateQuestionInput();
+        }
+
+        function updateDigitalText() {
+            let h = currentTime.getHours().toString().padStart(2, '0');
+            let m = currentTime.getMinutes().toString().padStart(2, '0');
+            document.getElementById('digitalDisplay').innerText = h + ":" + m;
+        }
+
+        function toggleDigital() {
+            const display = document.getElementById('digitalDisplay');
+            const btn = document.getElementById('btnToggleDigital');
+            
+            if (display.style.visibility === 'visible') {
+                display.style.visibility = 'hidden';
+                btn.innerText = "Dijital Saati Göster";
+                btn.style.backgroundColor = "#3cb371";
+            } else {
+                display.style.visibility = 'visible';
+                btn.innerText = "Dijital Saati Gizle";
+                btn.style.backgroundColor = "#ff1493";
+            }
+        }
+
+        function applyQuestionTime() {
+            const timeVal = document.getElementById('questionInput').value;
+            if(timeVal) {
+                const parts = timeVal.split(':');
+                currentTime.setHours(parseInt(parts[0], 10));
+                currentTime.setMinutes(parseInt(parts[1], 10));
+                
+                document.getElementById('digitalDisplay').style.visibility = 'hidden'; 
+                document.getElementById('btnToggleDigital').innerText = "Dijital Saati Göster";
+                document.getElementById('btnToggleDigital').style.backgroundColor = "#3cb371";
+                
+                document.getElementById('spelledTimeDisplay').style.visibility = 'hidden'; 
+                document.getElementById('btnToggleSpelled').innerText = "Okunuşu Göster";
+                document.getElementById('btnToggleSpelled').style.backgroundColor = "#3cb371";
+                
+                drawClock();
+            }
+        }
+        
+        function updateQuestionInput() {
+            let h = currentTime.getHours().toString().padStart(2, '0');
+            let m = currentTime.getMinutes().toString().padStart(2, '0');
+            document.getElementById('questionInput').value = h + ":" + m;
+        }
+
+        function toggleSpelledTime() {
+            const display = document.getElementById('spelledTimeDisplay');
+            const btn = document.getElementById('btnToggleSpelled');
+            
+            if (display.style.visibility === 'visible') {
+                display.style.visibility = 'hidden';
+                btn.innerText = "Okunuşu Göster";
+                btn.style.backgroundColor = "#3cb371"; 
+            } else {
+                display.style.visibility = 'visible';
+                btn.innerText = "Okunuşu Gizle";
+                btn.style.backgroundColor = "#ff1493"; 
+                generateSpelledTimeText();
+            }
+        }
+
+        function updateSpelledTimeIfVisible() {
+            if (document.getElementById('spelledTimeDisplay').style.visibility === 'visible') {
+                generateSpelledTimeText();
+            }
+        }
+
+        function generateSpelledTimeText() {
+            let h = currentTime.getHours();
+            let m = currentTime.getMinutes();
+            let isPM = document.getElementById('chkPM').checked;
+
+            let analogH = h % 12; 
+            let currentHour;
+            let nextHour;
+
+            // --- YENİ EKLENEN HASSAS 12 / 00 (GECE YARISI) MANTIĞI ---
+            if (isPM) {
+                // Dış halka baz alınıyor (13, 14 ... 23, 00)
+                currentHour = analogH === 0 ? 0 : analogH + 12; 
+                
+                if (currentHour === 23) nextHour = 0;
+                else if (currentHour === 0) nextHour = 13; // 00'dan sonra dış halkada 13 gelir
+                else nextHour = currentHour + 1;
+            } else {
+                // İç halka baz alınıyor (1, 2 ... 11, 12)
+                currentHour = analogH === 0 ? 12 : analogH; 
+                
+                if (currentHour === 12) nextHour = 1; // 12'den sonra iç halkada 1 gelir
+                else nextHour = currentHour + 1;
+            }
+
+            const varEkleri = ["'a", "'e", "'ye", "'e", "'e", "'e", "'ya", "'ye", "'e", "'a", "'a", "'e", "'ye", "'e", "'e", "'e", "'ya", "'ye", "'e", "'a", "'ye", "'e", "'ye", "'e"];
+            const geciyorEkleri = ["'ı", "'i", "'yi", "'ü", "'ü", "'i", "'yı", "'yi", "'i", "'u", "'u", "'i", "'yi", "'ü", "'ü", "'i", "'yı", "'yi", "'i", "'u", "'yi", "'i", "'yi", "'ü"];
+
+            let timeText = "";
+
+            if (m === 0) {
+                if (currentHour === 0) timeText = "Saat tam Gece Yarısı (00:00)";
+                else timeText = "Saat tam " + currentHour;
+            } else if (m === 30) {
+                if (currentHour === 0) timeText = "Gece yarısı buçuk";
+                else timeText = "Saat " + currentHour + " buçuk";
+            } else if (m === 15) {
+                if (currentHour === 0) timeText = "Gece yarısını çeyrek geçiyor";
+                else timeText = currentHour + geciyorEkleri[currentHour] + " çeyrek geçiyor";
+            } else if (m === 45) {
+                if (nextHour === 0) timeText = "Gece yarısına çeyrek var";
+                else timeText = nextHour + varEkleri[nextHour] + " çeyrek var";
+            } else if (m < 30) {
+                if (currentHour === 0) timeText = "Gece yarısını " + m + " geçiyor";
+                else timeText = currentHour + geciyorEkleri[currentHour] + " " + m + " geçiyor";
+            } else {
+                if (nextHour === 0) timeText = "Gece yarısına " + (60 - m) + " var";
+                else timeText = nextHour + varEkleri[nextHour] + " " + (60 - m) + " var";
+            }
+
+            document.getElementById('spelledTimeDisplay').innerText = timeText;
+        }
+
+		// --- TEST (QUIZ) FONKSİYONLARI ---									 
+        function generateQuiz() {
+            let randomH = Math.floor(Math.random() * 24);
+            let randomM = Math.floor(Math.random() * 60);
+            
+            targetQuizTime = { hours: randomH, minutes: randomM };
+            
+            let displayH = randomH.toString().padStart(2, '0');
+            let displayM = randomM.toString().padStart(2, '0');
+            
+            document.getElementById('quizDisplay').innerText = displayH + ":" + displayM;
+            
+            const feedback = document.getElementById('quizFeedback');
+            feedback.innerHTML = "Saati ayarla ve <br> <b>Kontrol Et</b>'e bas! ⏳";
+            feedback.style.color = "#444";
+			document.getElementById('questionInput').style.visibility = 'hidden'; 
+        }
+
+        function checkQuiz() {
+            const feedback = document.getElementById('quizFeedback');
+            
+            if (!targetQuizTime) {
+                feedback.innerText = "Önce 'Soru Sor' butonuna basmalısın! 👆";
+                feedback.style.color = "#ff8c00";
+                return;
+            }
+
+            let currentH = currentTime.getHours();
+            let currentM = currentTime.getMinutes();
+
+            if (currentH === targetQuizTime.hours && currentM === targetQuizTime.minutes) {
+                feedback.innerText = "🎉 TEBRİKLER! Harika iş çıkardın!";
+                feedback.style.color = "#3cb371";
+				document.getElementById('questionInput').style.visibility = 'visible';													   
+            } else {
+                feedback.innerText = "❌ Yanlış oldu. Yelkovan ve Akrebi tekrar kontrol et!";
+                feedback.style.color = "#dc143c";
+            }
+        }
+
+		// --- SIFIRLAMA FONKSİYONU ---								
+        function resetToZero() {
+            currentTime.setHours(0, 0, 0);
+			document.getElementById('questionInput').style.visibility = 'visible'; 													  
+            document.getElementById('questionInput').value = "00:00";
+            
+            document.getElementById("chkAllHours").checked = false;
+            document.getElementById("chkMinutes").checked = false;
+            document.getElementById("chk24Hours").checked = false;
+            document.getElementById("chkPM").checked = false; 
+            
+            document.getElementById('digitalDisplay').style.visibility = 'hidden';
+            document.getElementById('btnToggleDigital').innerText = "Dijital Saati Göster";
+            document.getElementById('btnToggleDigital').style.backgroundColor = "#3cb371";
+            
+            document.getElementById('spelledTimeDisplay').style.visibility = 'hidden';
+            document.getElementById('btnToggleSpelled').innerText = "Okunuşu Göster";
+            document.getElementById('btnToggleSpelled').style.backgroundColor = "#3cb371";
+            
+            targetQuizTime = null;
+            document.getElementById('quizDisplay').innerText = "--:--";
+            document.getElementById('quizFeedback').innerText = "Soru Sor butonuna basarak başla!";
+            document.getElementById('quizFeedback').style.color = "#666";
+
+            drawClock();
+        }
+
+        drawClock();
+    </script>
+</body>
+</html>
